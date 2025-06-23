@@ -29,6 +29,7 @@ public class AdminUserDTO implements Serializable {
     @Size(max = 50)
     private String lastName;
 
+    @Email
     @Size(max = 254)
     private String email;
 

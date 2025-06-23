@@ -4,13 +4,16 @@ import com.mycompany.myapp.domain.Task;
 import com.mycompany.myapp.repository.TaskRepository;
 import com.mycompany.myapp.service.TaskService;
 import com.mycompany.myapp.web.rest.errors.BadRequestAlertException;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,9 +45,12 @@ public class TaskResource {
 
     private final TaskRepository taskRepository;
 
-    public TaskResource(TaskService taskService, TaskRepository taskRepository) {
+    private final Validator validator;
+
+    public TaskResource(TaskService taskService, TaskRepository taskRepository, Validator validator) {
         this.taskService = taskService;
         this.taskRepository = taskRepository;
+        this.validator = validator;
     }
 
     /**
@@ -55,11 +61,26 @@ public class TaskResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    public ResponseEntity<Task> createTask(@Valid @RequestBody Task task) throws URISyntaxException {
+    public ResponseEntity<Task> createTask(@RequestBody Task task) throws URISyntaxException {
         LOG.debug("REST request to save Task : {}", task);
         if (task.getId() != null) {
             throw new BadRequestAlertException("A new task cannot already have an ID", ENTITY_NAME, "idexists");
         }
+
+        // Set default values before validation
+        if (task.getCreatedDate() == null) {
+            task.setCreatedDate(java.time.Instant.now());
+        }
+        if (task.getCompleted() == null) {
+            task.setCompleted(false);
+        }
+
+        // Manual validation after setting defaults
+        Set<ConstraintViolation<Task>> violations = validator.validate(task);
+        if (!violations.isEmpty()) {
+            throw new BadRequestAlertException("Task validation failed", ENTITY_NAME, "validation");
+        }
+
         task = taskService.save(task);
         return ResponseEntity.created(new URI("/api/tasks/" + task.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, task.getId().toString()))
@@ -138,20 +159,34 @@ public class TaskResource {
      *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
+     * @param completed filter by completion status (optional).
+     * @param currentUserOnly flag to get only current user's tasks.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tasks in body.
      */
     @GetMapping("")
     public ResponseEntity<List<Task>> getAllTasks(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
-        @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
+        @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload,
+        @RequestParam(name = "completed", required = false) Boolean completed,
+        @RequestParam(name = "currentUserOnly", required = false, defaultValue = "true") boolean currentUserOnly
     ) {
-        LOG.debug("REST request to get a page of Tasks");
+        LOG.debug("REST request to get a page of Tasks with completed filter: {} and currentUserOnly: {}", completed, currentUserOnly);
         Page<Task> page;
-        if (eagerload) {
-            page = taskService.findAllWithEagerRelationships(pageable);
+
+        if (currentUserOnly) {
+            if (completed != null) {
+                page = taskService.findAllByCurrentUserAndCompleted(completed, pageable);
+            } else {
+                page = taskService.findAllByCurrentUser(pageable);
+            }
         } else {
-            page = taskService.findAll(pageable);
+            if (eagerload) {
+                page = taskService.findAllWithEagerRelationships(pageable);
+            } else {
+                page = taskService.findAll(pageable);
+            }
         }
+
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
@@ -182,5 +217,25 @@ public class TaskResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    /**
+     * {@code PATCH /tasks/:id/toggle-completion} : toggle the completion status of a task.
+     *
+     * @param id the id of the task to toggle.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the updated task.
+     */
+    @PatchMapping("/{id}/toggle-completion")
+    public ResponseEntity<Task> toggleTaskCompletion(@PathVariable("id") Long id) {
+        LOG.debug("REST request to toggle completion of Task : {}", id);
+
+        Task task = taskService.findOne(id).orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+
+        task.setCompleted(!task.getCompleted());
+        task = taskService.update(task);
+
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, task.getId().toString()))
+            .body(task);
     }
 }

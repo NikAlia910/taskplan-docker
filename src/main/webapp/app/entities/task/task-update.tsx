@@ -69,8 +69,8 @@ export const TaskUpdate = () => {
   const defaultValues = () =>
     isNew
       ? {
-          createdDate: displayDefaultDateTime(),
-          lastModifiedDate: displayDefaultDateTime(),
+          completed: false,
+          priority: TaskPriority.MEDIUM,
         }
       : {
           priority: 'HIGH',
@@ -144,35 +144,8 @@ export const TaskUpdate = () => {
                 check
                 type="checkbox"
               />
-              <ValidatedField
-                label={translate('taskplanDockerApp.task.createdDate')}
-                id="task-createdDate"
-                name="createdDate"
-                data-cy="createdDate"
-                type="datetime-local"
-                placeholder="YYYY-MM-DD HH:mm"
-                validate={{
-                  required: { value: true, message: translate('entity.validation.required') },
-                }}
-              />
-              <ValidatedField
-                label={translate('taskplanDockerApp.task.lastModifiedDate')}
-                id="task-lastModifiedDate"
-                name="lastModifiedDate"
-                data-cy="lastModifiedDate"
-                type="datetime-local"
-                placeholder="YYYY-MM-DD HH:mm"
-              />
-              <ValidatedField id="task-user" name="user" data-cy="user" label={translate('taskplanDockerApp.task.user')} type="select">
-                <option value="" key="0" />
-                {users
-                  ? users.map(otherEntity => (
-                      <option value={otherEntity.id} key={otherEntity.id}>
-                        {otherEntity.login}
-                      </option>
-                    ))
-                  : null}
-              </ValidatedField>
+              {/* Hide user selection for better UX - tasks belong to current user */}
+              <input type="hidden" name="user" value={users?.[0]?.id || ''} />
               <Button tag={Link} id="cancel-save" data-cy="entityCreateCancelButton" to="/task" replace color="info">
                 <FontAwesomeIcon icon="arrow-left" />
                 &nbsp;

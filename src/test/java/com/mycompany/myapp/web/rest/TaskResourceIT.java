@@ -198,34 +198,36 @@ class TaskResourceIT {
 
     @Test
     @Transactional
-    void checkCompletedIsRequired() throws Exception {
+    void completedIsSetAutomaticallyIfNull() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
         task.setCompleted(null);
 
-        // Create the Task, which fails.
+        // Create the Task, which should succeed now (completed is set automatically)
 
         restTaskMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(task)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.completed").value(false)); // Should be set to false automatically
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        assertIncrementedRepositoryCount(databaseSizeBeforeTest);
     }
 
     @Test
     @Transactional
-    void checkCreatedDateIsRequired() throws Exception {
+    void createdDateIsSetAutomaticallyIfNull() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
         task.setCreatedDate(null);
 
-        // Create the Task, which fails.
+        // Create the Task, which should succeed now (createdDate is set automatically)
 
         restTaskMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(task)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.createdDate").exists()); // Should be set automatically
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        assertIncrementedRepositoryCount(databaseSizeBeforeTest);
     }
 
     @Test
@@ -234,9 +236,9 @@ class TaskResourceIT {
         // Initialize the database
         insertedTask = taskRepository.saveAndFlush(task);
 
-        // Get all the taskList
+        // Get all the taskList (with currentUserOnly=false to get all tasks)
         restTaskMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?sort=id,desc&currentUserOnly=false"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(task.getId().intValue())))

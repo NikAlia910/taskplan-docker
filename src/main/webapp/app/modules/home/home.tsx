@@ -1,7 +1,7 @@
 import './home.scss';
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Translate } from 'react-jhipster';
 import { Alert, Col, Row } from 'reactstrap';
 
@@ -9,6 +9,14 @@ import { useAppSelector } from 'app/config/store';
 
 export const Home = () => {
   const account = useAppSelector(state => state.authentication.account);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redirect authenticated users to their task planner
+    if (account?.login) {
+      navigate('/task');
+    }
+  }, [account, navigate]);
 
   return (
     <Row>
@@ -17,10 +25,10 @@ export const Home = () => {
       </Col>
       <Col md="9">
         <h1 className="display-4">
-          <Translate contentKey="home.title">Welcome, Java Hipster!</Translate>
+          <Translate contentKey="home.title">Welcome to Daily Task Planner!</Translate>
         </h1>
         <p className="lead">
-          <Translate contentKey="home.subtitle">This is your homepage</Translate>
+          <Translate contentKey="home.subtitle">Organize your daily tasks and stay productive</Translate>
         </p>
         {account?.login ? (
           <div>

@@ -1,0 +1,205 @@
+.task-list {
+  .card {
+    border: 1px solid #e9ecef;
+    transition: all 0.2s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+      border-color: #6c757d;
+    }
+
+    &.bg-light {
+      opacity: 0.8;
+
+      .card-body {
+        background-color: #f8f9fa;
+      }
+    }
+  }
+
+  .btn-group {
+    .btn {
+      border-radius: 0.25rem;
+      margin-left: 0.25rem;
+
+      &:first-child {
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+.daily-task-planner {
+  .task-summary {
+    .progress {
+      height: 8px;
+      border-radius: 4px;
+    }
+  }
+
+  .quick-add-form {
+    .form-group {
+      margin-bottom: 0;
+    }
+
+    .btn {
+      height: calc(1.5em + 0.75rem + 2px);
+    }
+  }
+
+  .filter-buttons {
+    .btn {
+      border-radius: 20px;
+      margin-right: 0.5rem;
+
+      &:last-child {
+        margin-right: 0;
+      }
+    }
+  }
+
+  .sort-buttons {
+    .btn {
+      border-radius: 0.25rem;
+
+      &:first-child {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      &:last-child {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+
+      &:not(:first-child):not(:last-child) {
+        border-radius: 0;
+      }
+    }
+  }
+}
+
+.task-completion-toggle {
+  &:hover {
+    transform: scale(1.1);
+  }
+
+  &:focus {
+    box-shadow: none !important;
+  }
+}
+
+.priority-badge {
+  &.badge-danger {
+    background-color: #dc3545;
+  }
+
+  &.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+  }
+
+  &.badge-success {
+    background-color: #28a745;
+  }
+}
+
+.empty-state {
+  padding: 3rem 1rem;
+
+  .fa-icon {
+    opacity: 0.5;
+  }
+
+  h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    margin-bottom: 1.5rem;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .daily-task-planner {
+    .quick-add-form {
+      .row > .col-md-2 {
+        margin-top: 0.5rem;
+      }
+    }
+
+    .filter-buttons {
+      margin-bottom: 1rem;
+
+      .btn {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+      }
+    }
+
+    .sort-buttons {
+      .btn {
+        font-size: 0.875rem;
+      }
+    }
+  }
+
+  .task-list {
+    .card {
+      .card-body {
+        .btn-group {
+          .btn {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.875rem;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Animation for task completion
+.task-completed-animation {
+  animation: fadeToComplete 0.3s ease-in-out;
+}
+
+@keyframes fadeToComplete {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+}
+
+// Loading states
+.task-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loading-overlay {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+}

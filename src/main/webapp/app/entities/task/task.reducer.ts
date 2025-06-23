@@ -20,8 +20,16 @@ const apiUrl = 'api/tasks';
 
 export const getEntities = createAsyncThunk(
   'task/fetch_entity_list',
-  async ({ page, size, sort }: IQueryParams) => {
-    const requestUrl = `${apiUrl}?${sort ? `page=${page}&size=${size}&sort=${sort}&` : ''}cacheBuster=${new Date().getTime()}`;
+  async ({ page, size, sort, completed, currentUserOnly }: IQueryParams & { completed?: boolean; currentUserOnly?: boolean }) => {
+    const params = new URLSearchParams();
+    if (page !== undefined) params.append('page', page.toString());
+    if (size !== undefined) params.append('size', size.toString());
+    if (sort) params.append('sort', sort);
+    if (completed !== undefined) params.append('completed', completed.toString());
+    if (currentUserOnly !== undefined) params.append('currentUserOnly', currentUserOnly.toString());
+    params.append('cacheBuster', new Date().getTime().toString());
+
+    const requestUrl = `${apiUrl}?${params.toString()}`;
     return axios.get<ITask[]>(requestUrl);
   },
   { serializeError: serializeAxiosError },
@@ -77,6 +85,17 @@ export const deleteEntity = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const toggleTaskCompletion = createAsyncThunk(
+  'task/toggle_completion',
+  async (id: string | number, thunkAPI) => {
+    const requestUrl = `${apiUrl}/${id}/toggle-completion`;
+    const result = await axios.patch<ITask>(requestUrl);
+    thunkAPI.dispatch(getEntities({}));
+    return result;
+  },
+  { serializeError: serializeAxiosError },
+);
+
 // slice
 
 export const TaskSlice = createEntitySlice({
@@ -103,7 +122,7 @@ export const TaskSlice = createEntitySlice({
           totalItems: parseInt(headers['x-total-count'], 10),
         };
       })
-      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
+      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity, toggleTaskCompletion), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
@@ -114,7 +133,7 @@ export const TaskSlice = createEntitySlice({
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity, toggleTaskCompletion), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;

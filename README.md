@@ -120,6 +120,7 @@ JHipster Control Center can help you manage and control your application(s). You
 ```
 docker compose -f src/main/docker/jhipster-control-center.yml up
 ```
+
 # Docker Setup
 
 ## Prerequisites
@@ -130,16 +131,19 @@ docker compose -f src/main/docker/jhipster-control-center.yml up
 ## Step-by-Step Instructions
 
 ### Step 1: Build the Docker Image
+
 ```bash
 npm run java:docker
 ```
 
 ### Step 2: Build and Package the Application
+
 ```bash
 ./mvnw package -Pprod verify jib:dockerBuild
 ```
 
 ### Step 3: Start the Application
+
 ```bash
 docker-compose -f src/main/docker/app.yml up
 ```
@@ -149,9 +153,11 @@ docker-compose -f src/main/docker/app.yml up
 - **Application**: http://localhost:8080
 
 ## Stop the Application
+
 ```bash
 docker-compose -f src/main/docker/app.yml down
 ```
+
 ## Testing
 
 ### Spring Boot tests

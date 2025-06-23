@@ -41,7 +41,6 @@ public class Task implements Serializable {
     @Column(name = "completed", nullable = false)
     private Boolean completed;
 
-    @NotNull
     @Column(name = "created_date", nullable = false)
     private Instant createdDate;
 
@@ -158,6 +157,21 @@ public class Task implements Serializable {
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdDate == null) {
+            this.createdDate = Instant.now();
+        }
+        if (this.completed == null) {
+            this.completed = false;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.lastModifiedDate = Instant.now();
+    }
 
     @Override
     public boolean equals(Object o) {
