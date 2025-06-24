@@ -1,18 +1,16 @@
 # This configuration is intended for development purpose, it's **your** responsibility to harden it for production
-name: taskplandocker
+name: task-plan-docker
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     volumes:
       - ./config/mysql:/etc/mysql/conf.d
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
-      - MYSQL_DATABASE=taskplandocker
-    # If you want to expose these ports outside your dev PC,
-    # remove the "127.0.0.1:" prefix
+      - MYSQL_DATABASE=task-plan-docker
     ports:
       - 127.0.0.1:3306:3306
-    command: mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+    command: mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp --thread_stack=256K
     healthcheck:
       test: ['CMD-SHELL', 'mysql -e "SHOW DATABASES;" && sleep 5']
       interval: 5s
