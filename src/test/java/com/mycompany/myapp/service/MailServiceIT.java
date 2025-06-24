@@ -26,15 +26,20 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.spring6.SpringTemplateEngine;
 import tech.jhipster.config.JHipsterProperties;
 
 /**
  * Integration tests for {@link MailService}.
  */
 @IntegrationTest
+@Transactional
 class MailServiceIT {
 
     private static final String[] languages = {
@@ -47,7 +52,7 @@ class MailServiceIT {
     @Autowired
     private JHipsterProperties jHipsterProperties;
 
-    @MockitoBean
+    @MockBean
     private JavaMailSender javaMailSender;
 
     @Captor
@@ -56,10 +61,121 @@ class MailServiceIT {
     @Autowired
     private MailService mailService;
 
+    @Autowired
+    private SpringTemplateEngine templateEngine;
+
+    private User user;
+    private MimeMessage mimeMessage;
+
     @BeforeEach
-    void setup() {
-        doNothing().when(javaMailSender).send(any(MimeMessage.class));
-        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+    void setUp() {
+        user = new User();
+        user.setLogin("testuser");
+        user.setFirstName("Test");
+        user.setLastName("User");
+        user.setEmail("test@example.com");
+        user.setLangKey("en");
+        user.setActivationKey("activationkey");
+        user.setResetKey("resetkey");
+
+        mimeMessage = mock(MimeMessage.class);
+        when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
+    }
+
+    @Test
+    void sendEmail_shouldSendEmailSuccessfully() {
+        // When
+        mailService.sendEmail("test@example.com", "Test Subject", "Test Content", false, true);
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendEmailFromTemplate_shouldSendTemplateEmailSuccessfully() {
+        // When
+        mailService.sendEmailFromTemplate(user, "activationEmail", "email.activation.title");
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendActivationEmail_shouldSendActivationEmail() {
+        // When
+        mailService.sendActivationEmail(user);
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendCreationEmail_shouldSendCreationEmail() {
+        // When
+        mailService.sendCreationEmail(user);
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendPasswordResetMail_shouldSendPasswordResetEmail() {
+        // When
+        mailService.sendPasswordResetMail(user);
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendEmail_withMailException_shouldHandleGracefully() {
+        // Given
+        doThrow(new MailException("Mail server error") {}).when(javaMailSender).send(any(MimeMessage.class));
+
+        // When - should not throw exception
+        mailService.sendEmail("test@example.com", "Test Subject", "Test Content", false, true);
+
+        // Then
+        verify(javaMailSender).createMimeMessage();
+        verify(javaMailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendEmailFromTemplate_withNullUser_shouldHandleGracefully() {
+        // When - should not throw exception
+        mailService.sendEmailFromTemplate(null, "activationEmail", "email.activation.title");
+
+        // Then - should not attempt to send email
+        verify(javaMailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendActivationEmail_withNullActivationKey_shouldNotSendEmail() {
+        // Given
+        user.setActivationKey(null);
+
+        // When
+        mailService.sendActivationEmail(user);
+
+        // Then - should not send email without activation key
+        verify(javaMailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sendPasswordResetMail_withNullResetKey_shouldNotSendEmail() {
+        // Given
+        user.setResetKey(null);
+
+        // When
+        mailService.sendPasswordResetMail(user);
+
+        // Then - should not send email without reset key
+        verify(javaMailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -185,7 +301,7 @@ class MailServiceIT {
 
     @Test
     void testSendEmailWithException() {
-        doThrow(MailSendException.class).when(javaMailSender).send(any(MimeMessage.class));
+        doThrow(MailException.class).when(javaMailSender).send(any(MimeMessage.class));
         try {
             mailService.sendEmail("john.doe@example.com", "testSubject", "testContent", false, false);
         } catch (Exception e) {

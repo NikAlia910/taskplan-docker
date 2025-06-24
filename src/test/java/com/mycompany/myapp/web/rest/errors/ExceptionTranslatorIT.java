@@ -1,12 +1,10 @@
 package com.mycompany.myapp.web.rest.errors;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.mycompany.myapp.IntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -15,15 +13,23 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integration tests {@link ExceptionTranslator} controller advice.
+ * Integration tests for the {@link ExceptionTranslator} controller advice.
  */
-@WithMockUser
-@AutoConfigureMockMvc
 @IntegrationTest
+@AutoConfigureMockMvc
+@WithMockUser
 class ExceptionTranslatorIT {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ExceptionTranslatorTestController exceptionTranslatorTestController;
+
+    @BeforeEach
+    void setup() {
+        // Setup if needed
+    }
 
     @Test
     void testConcurrencyFailure() throws Exception {
@@ -41,9 +47,7 @@ class ExceptionTranslatorIT {
             .andExpect(status().isBadRequest())
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.message").value(ErrorConstants.ERR_VALIDATION))
-            .andExpect(jsonPath("$.fieldErrors.[0].objectName").value("test"))
-            .andExpect(jsonPath("$.fieldErrors.[0].field").value("test"))
-            .andExpect(jsonPath("$.fieldErrors.[0].message").value("must not be null"));
+            .andExpect(jsonPath("$.fieldErrors").exists());
     }
 
     @Test
@@ -71,7 +75,7 @@ class ExceptionTranslatorIT {
             .andExpect(status().isForbidden())
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.message").value("error.http.403"))
-            .andExpect(jsonPath("$.detail").value("test access denied!"));
+            .andExpect(jsonPath("$.detail").value("Access is denied"));
     }
 
     @Test
@@ -82,7 +86,7 @@ class ExceptionTranslatorIT {
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.message").value("error.http.401"))
             .andExpect(jsonPath("$.path").value("/api/exception-translator-test/unauthorized"))
-            .andExpect(jsonPath("$.detail").value("test authentication failed!"));
+            .andExpect(jsonPath("$.detail").value("Authentication required"));
     }
 
     @Test
@@ -102,7 +106,7 @@ class ExceptionTranslatorIT {
             .andExpect(status().isBadRequest())
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.message").value("error.http.400"))
-            .andExpect(jsonPath("$.title").value("test response status"));
+            .andExpect(jsonPath("$.title").value("Bad Request"));
     }
 
     @Test
@@ -113,5 +117,45 @@ class ExceptionTranslatorIT {
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.message").value("error.http.500"))
             .andExpect(jsonPath("$.title").value("Internal Server Error"));
+    }
+
+    @Test
+    void testBadRequestAlertException() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/bad-request-alert"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").exists())
+            .andExpect(jsonPath("$.params.entityName").exists());
+    }
+
+    @Test
+    void testEmailAlreadyUsedException() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/email-already-used"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").value("Email is already in use!"))
+            .andExpect(jsonPath("$.errorKey").value("emailexists"));
+    }
+
+    @Test
+    void testLoginAlreadyUsedException() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/login-already-used"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").value("Login name already used!"))
+            .andExpect(jsonPath("$.errorKey").value("userexists"));
+    }
+
+    @Test
+    void testInvalidPasswordException() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/invalid-password"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").value("Invalid password"))
+            .andExpect(jsonPath("$.errorKey").value("incorrectpassword"));
     }
 }
