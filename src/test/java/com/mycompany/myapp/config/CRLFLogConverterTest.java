@@ -78,7 +78,7 @@ class CRLFLogConverterTest {
         when(event.getLoggerName()).thenReturn("com.mycompany.myapp.example.Logger");
         String input = "Test\ninput\rstring";
         CRLFLogConverter converter = new CRLFLogConverter();
-        converter.setOptionList(Collections.emptyList()); // Initialize with empty options to prevent timeout
+        // Do not set options to avoid timeout
 
         String result = converter.transform(event, input);
 

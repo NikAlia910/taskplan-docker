@@ -191,7 +191,7 @@ export const Task = () => {
         <Col lg="12">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
-              <h2 className="text-primary mb-1">
+              <h2 className="text-primary mb-1" data-cy="TaskHeading">
                 <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
                 Daily Task Planner
               </h2>
@@ -203,7 +203,7 @@ export const Task = () => {
               <Button color="outline-primary" size="sm" onClick={handleSyncList} disabled={loading} className="me-2">
                 <FontAwesomeIcon icon={faRefresh} spin={loading} />
               </Button>
-              <Link to="/task/new" className="btn btn-primary btn-sm">
+              <Link to="/task/new" className="btn btn-primary btn-sm" data-cy="entityCreateButton">
                 <FontAwesomeIcon icon={faPlus} /> Advanced Add
               </Link>
             </div>
@@ -313,7 +313,7 @@ export const Task = () => {
       <Row>
         <Col lg="12">
           {taskList && taskList.length > 0 ? (
-            <div className="task-list">
+            <div className="task-list" data-cy="entityTable">
               {taskList.map((task, i) => (
                 <Card key={`task-${i}`} className={`mb-3 ${task.completed ? 'bg-light' : ''}`}>
                   <CardBody>
@@ -360,10 +360,24 @@ export const Task = () => {
                       </Col>
                       <Col xs="auto">
                         <div className="btn-group">
-                          <Button tag={Link} to={`/task/${task.id}`} color="outline-info" size="sm" title="View Details">
+                          <Button
+                            tag={Link}
+                            to={`/task/${task.id}`}
+                            color="outline-info"
+                            size="sm"
+                            title="View Details"
+                            data-cy="entityDetailsButton"
+                          >
                             <FontAwesomeIcon icon="eye" />
                           </Button>
-                          <Button tag={Link} to={`/task/${task.id}/edit`} color="outline-primary" size="sm" title="Edit Task">
+                          <Button
+                            tag={Link}
+                            to={`/task/${task.id}/edit`}
+                            color="outline-primary"
+                            size="sm"
+                            title="Edit Task"
+                            data-cy="entityEditButton"
+                          >
                             <FontAwesomeIcon icon={faEdit} />
                           </Button>
                           <Button
@@ -371,6 +385,7 @@ export const Task = () => {
                             color="outline-danger"
                             size="sm"
                             title="Delete Task"
+                            data-cy="entityDeleteButton"
                           >
                             <FontAwesomeIcon icon={faTrash} />
                           </Button>
@@ -401,7 +416,7 @@ export const Task = () => {
                         : 'All tasks are completed!'}
                   </p>
                   {filterCompleted === 'all' && (
-                    <Link to="/task/new" className="btn btn-primary">
+                    <Link to="/task/new" className="btn btn-primary" data-cy="entityCreateButtonEmptyState">
                       <FontAwesomeIcon icon={faPlus} className="me-2" />
                       Create Your First Task
                     </Link>

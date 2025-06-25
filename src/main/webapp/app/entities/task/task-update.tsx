@@ -144,6 +144,20 @@ export const TaskUpdate = () => {
                 check
                 type="checkbox"
               />
+              <ValidatedField
+                label={translate('taskplanDockerApp.task.createdDate')}
+                id="task-createdDate"
+                name="createdDate"
+                data-cy="createdDate"
+                type="datetime-local"
+              />
+              <ValidatedField
+                label={translate('taskplanDockerApp.task.lastModifiedDate')}
+                id="task-lastModifiedDate"
+                name="lastModifiedDate"
+                data-cy="lastModifiedDate"
+                type="datetime-local"
+              />
               {/* Hide user selection for better UX - tasks belong to current user */}
               <input type="hidden" name="user" value={users?.[0]?.id || ''} />
               <Button tag={Link} id="cancel-save" data-cy="entityCreateCancelButton" to="/task" replace color="info">
