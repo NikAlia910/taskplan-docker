@@ -78,7 +78,9 @@ class CRLFLogConverterTest {
         when(event.getLoggerName()).thenReturn("com.mycompany.myapp.example.Logger");
         String input = "Test\ninput\rstring";
         CRLFLogConverter converter = new CRLFLogConverter();
-        converter.setOptionList(Collections.emptyList()); // Initialize with empty options to prevent timeout
+        // Set up the converter properly for testing
+        converter.setOptionList(Collections.emptyList());
+        converter.start(); // Start the converter to initialize it properly
 
         String result = converter.transform(event, input);
 
@@ -93,7 +95,9 @@ class CRLFLogConverterTest {
         when(event.getLoggerName()).thenReturn("com.mycompany.myapp.example.Logger");
         String input = "Test\ninput\rstring";
         CRLFLogConverter converter = new CRLFLogConverter();
+        // Set up the converter properly for testing
         converter.setOptionList(List.of("red"));
+        converter.start(); // Start the converter to initialize it properly
 
         String result = converter.transform(event, input);
 
