@@ -191,7 +191,7 @@ export const Task = () => {
         <Col lg="12">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
-              <h2 className="text-primary mb-1">
+              <h2 className="text-primary mb-1" data-cy="TaskHeading">
                 <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
                 Daily Task Planner
               </h2>
@@ -203,7 +203,7 @@ export const Task = () => {
               <Button color="outline-primary" size="sm" onClick={handleSyncList} disabled={loading} className="me-2">
                 <FontAwesomeIcon icon={faRefresh} spin={loading} />
               </Button>
-              <Link to="/task/new" className="btn btn-primary btn-sm">
+              <Link to="/task/new" className="btn btn-primary btn-sm" data-cy="entityCreateButton">
                 <FontAwesomeIcon icon={faPlus} /> Advanced Add
               </Link>
             </div>
@@ -312,104 +312,117 @@ export const Task = () => {
       {/* Task List */}
       <Row>
         <Col lg="12">
-          {taskList && taskList.length > 0 ? (
-            <div className="task-list">
-              {taskList.map((task, i) => (
-                <Card key={`task-${i}`} className={`mb-3 ${task.completed ? 'bg-light' : ''}`}>
-                  <CardBody>
-                    <Row className="align-items-center">
-                      <Col xs="auto">
-                        <Button
-                          color="link"
-                          className="p-0 border-0 task-completion-toggle"
-                          onClick={() => handleToggleCompletion(task.id)}
-                          disabled={updating}
-                          id={`toggle-${task.id}`}
-                        >
-                          <FontAwesomeIcon
-                            icon={task.completed ? faCheckCircle : faCircle}
-                            className={task.completed ? 'text-success' : 'text-secondary'}
-                            size="lg"
-                          />
-                        </Button>
-                        <UncontrolledTooltip target={`toggle-${task.id}`}>
-                          {task.completed ? 'Mark as incomplete' : 'Mark as complete'}
-                        </UncontrolledTooltip>
-                      </Col>
-                      <Col>
-                        <div className={task.completed ? 'text-decoration-line-through text-muted' : ''}>
-                          <h6 className="mb-1">{task.description}</h6>
-                          <div className="d-flex align-items-center">
-                            {task.dueDate && (
-                              <Badge color="info" className="me-2">
-                                <FontAwesomeIcon icon={faCalendarAlt} className="me-1" />
-                                <TextFormat type="date" value={task.dueDate} format={APP_LOCAL_DATE_FORMAT} />
-                              </Badge>
-                            )}
-                            {task.priority && (
-                              <Badge color={getPriorityBadgeColor(task.priority)} className="me-2">
-                                <FontAwesomeIcon icon={faFlag} className="me-1" />
-                                <Translate contentKey={`taskplanDockerApp.TaskPriority.${task.priority}`} />
-                              </Badge>
-                            )}
-                            <small className="text-muted">
-                              Created: <TextFormat type="date" value={task.createdDate} format={APP_LOCAL_DATE_FORMAT} />
-                            </small>
-                          </div>
-                        </div>
-                      </Col>
-                      <Col xs="auto">
-                        <div className="btn-group">
-                          <Button tag={Link} to={`/task/${task.id}`} color="outline-info" size="sm" title="View Details">
-                            <FontAwesomeIcon icon="eye" />
-                          </Button>
-                          <Button tag={Link} to={`/task/${task.id}/edit`} color="outline-primary" size="sm" title="Edit Task">
-                            <FontAwesomeIcon icon={faEdit} />
-                          </Button>
+          <div className="task-list" data-cy="entityTable">
+            {taskList && taskList.length > 0
+              ? taskList.map((task, i) => (
+                  <Card key={`task-${i}`} className={`mb-3 ${task.completed ? 'bg-light' : ''}`}>
+                    <CardBody>
+                      <Row className="align-items-center">
+                        <Col xs="auto">
                           <Button
-                            onClick={() => (window.location.href = `/task/${task.id}/delete`)}
-                            color="outline-danger"
-                            size="sm"
-                            title="Delete Task"
+                            color="link"
+                            className="p-0 border-0 task-completion-toggle"
+                            onClick={() => handleToggleCompletion(task.id)}
+                            disabled={updating}
+                            id={`toggle-${task.id}`}
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <FontAwesomeIcon
+                              icon={task.completed ? faCheckCircle : faCircle}
+                              className={task.completed ? 'text-success' : 'text-secondary'}
+                              size="lg"
+                            />
                           </Button>
-                        </div>
-                      </Col>
-                    </Row>
-                  </CardBody>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            !loading && (
-              <Card>
-                <CardBody className="text-center py-5 empty-state">
-                  <FontAwesomeIcon icon={faCalendarAlt} size="3x" className="text-muted mb-3" />
-                  <h4 className="text-muted">
-                    {filterCompleted === 'all'
-                      ? 'No tasks yet'
-                      : filterCompleted === 'completed'
-                        ? 'No completed tasks'
-                        : 'No active tasks'}
-                  </h4>
-                  <p className="text-muted">
-                    {filterCompleted === 'all'
-                      ? 'Create your first task to get started!'
-                      : filterCompleted === 'completed'
-                        ? 'Complete some tasks to see them here.'
-                        : 'All tasks are completed!'}
-                  </p>
-                  {filterCompleted === 'all' && (
-                    <Link to="/task/new" className="btn btn-primary">
-                      <FontAwesomeIcon icon={faPlus} className="me-2" />
-                      Create Your First Task
-                    </Link>
-                  )}
-                </CardBody>
-              </Card>
-            )
-          )}
+                          <UncontrolledTooltip target={`toggle-${task.id}`}>
+                            {task.completed ? 'Mark as incomplete' : 'Mark as complete'}
+                          </UncontrolledTooltip>
+                        </Col>
+                        <Col>
+                          <div className={task.completed ? 'text-decoration-line-through text-muted' : ''}>
+                            <h6 className="mb-1">{task.description}</h6>
+                            <div className="d-flex align-items-center">
+                              {task.dueDate && (
+                                <Badge color="info" className="me-2">
+                                  <FontAwesomeIcon icon={faCalendarAlt} className="me-1" />
+                                  <TextFormat type="date" value={task.dueDate} format={APP_LOCAL_DATE_FORMAT} />
+                                </Badge>
+                              )}
+                              {task.priority && (
+                                <Badge color={getPriorityBadgeColor(task.priority)} className="me-2">
+                                  <FontAwesomeIcon icon={faFlag} className="me-1" />
+                                  <Translate contentKey={`taskplanDockerApp.TaskPriority.${task.priority}`} />
+                                </Badge>
+                              )}
+                              <small className="text-muted">
+                                Created: <TextFormat type="date" value={task.createdDate} format={APP_LOCAL_DATE_FORMAT} />
+                              </small>
+                            </div>
+                          </div>
+                        </Col>
+                        <Col xs="auto">
+                          <div className="btn-group">
+                            <Button
+                              tag={Link}
+                              to={`/task/${task.id}`}
+                              color="outline-info"
+                              size="sm"
+                              title="View Details"
+                              data-cy="entityDetailsButton"
+                            >
+                              <FontAwesomeIcon icon="eye" />
+                            </Button>
+                            <Button
+                              tag={Link}
+                              to={`/task/${task.id}/edit`}
+                              color="outline-primary"
+                              size="sm"
+                              title="Edit Task"
+                              data-cy="entityEditButton"
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                            </Button>
+                            <Button
+                              onClick={() => (window.location.href = `/task/${task.id}/delete`)}
+                              color="outline-danger"
+                              size="sm"
+                              title="Delete Task"
+                              data-cy="entityDeleteButton"
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </Button>
+                          </div>
+                        </Col>
+                      </Row>
+                    </CardBody>
+                  </Card>
+                ))
+              : !loading && (
+                  <Card>
+                    <CardBody className="text-center py-5 empty-state">
+                      <FontAwesomeIcon icon={faCalendarAlt} size="3x" className="text-muted mb-3" />
+                      <h4 className="text-muted">
+                        {filterCompleted === 'all'
+                          ? 'No tasks yet'
+                          : filterCompleted === 'completed'
+                            ? 'No completed tasks'
+                            : 'No active tasks'}
+                      </h4>
+                      <p className="text-muted">
+                        {filterCompleted === 'all'
+                          ? 'Create your first task to get started!'
+                          : filterCompleted === 'completed'
+                            ? 'Complete some tasks to see them here.'
+                            : 'All tasks are completed!'}
+                      </p>
+                      {filterCompleted === 'all' && (
+                        <Link to="/task/new" className="btn btn-primary">
+                          <FontAwesomeIcon icon={faPlus} className="me-2" />
+                          Create Your First Task
+                        </Link>
+                      )}
+                    </CardBody>
+                  </Card>
+                )}
+          </div>
         </Col>
       </Row>
 

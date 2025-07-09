@@ -42,7 +42,7 @@ describe('Task e2e test', () => {
 
   it('Tasks menu should load Tasks page', () => {
     cy.visit('/');
-    cy.clickOnEntityMenuItem('task');
+    cy.visit(taskPageUrl);
     cy.wait('@entitiesRequest').then(({ response }) => {
       if (response?.body.length === 0) {
         cy.get(entityTableSelector).should('not.exist');
