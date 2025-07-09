@@ -44,11 +44,8 @@ describe('Task e2e test', () => {
     cy.visit('/');
     cy.visit(taskPageUrl);
     cy.wait('@entitiesRequest').then(({ response }) => {
-      if (response?.body.length === 0) {
-        cy.get(entityTableSelector).should('not.exist');
-      } else {
-        cy.get(entityTableSelector).should('exist');
-      }
+      expect(response?.statusCode).to.equal(200);
+      cy.get(entityTableSelector).should('exist');
     });
     cy.getEntityHeading('Task').should('exist');
     cy.url().should('match', taskPageUrlPattern);
