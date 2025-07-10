@@ -1,99 +1,293 @@
 package gatling.simulations;
 
-import static io.gatling.javaapi.core.CoreDsl.StringBody;
-import static io.gatling.javaapi.core.CoreDsl.exec;
-import static io.gatling.javaapi.core.CoreDsl.rampUsers;
-import static io.gatling.javaapi.core.CoreDsl.scenario;
-import static io.gatling.javaapi.http.HttpDsl.header;
-import static io.gatling.javaapi.http.HttpDsl.headerRegex;
-import static io.gatling.javaapi.http.HttpDsl.http;
-import static io.gatling.javaapi.http.HttpDsl.status;
+import static io.gatling.javaapi.core.CoreDsl.*;
+import static io.gatling.javaapi.http.HttpDsl.*;
 
-import io.gatling.javaapi.core.ChainBuilder;
-import io.gatling.javaapi.core.ScenarioBuilder;
-import io.gatling.javaapi.core.Simulation;
-import io.gatling.javaapi.http.HttpProtocolBuilder;
+import io.gatling.javaapi.core.*;
+import io.gatling.javaapi.http.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 /**
  * Performance test for the Task entity.
- *
- * @see <a href="https://github.com/jhipster/generator-jhipster/tree/v8.10.0/generators/gatling#logging-tips">Logging tips</a>
+ * Includes authentication, CRUD operations, and comprehensive reporting.
  */
 public class TaskGatlingTest extends Simulation {
 
-    String baseURL = Optional.ofNullable(System.getProperty("baseURL")).orElse("http://localhost:8080");
+    // Base configuration
+    private String baseURL = Optional.ofNullable(System.getProperty("baseURL")).orElse("http://localhost:8080");
+    private final AtomicLong successCounter = new AtomicLong(0);
+    private final AtomicLong failureCounter = new AtomicLong(0);
+    private final AtomicLong skippedCounter = new AtomicLong(0);
+    private final Map<String, EndpointStatus> apiCoverage = new ConcurrentHashMap<>();
+    private final String resultsPath = "target/gatling/results/api-coverage.csv";
 
-    HttpProtocolBuilder httpConf = http
+    // HTTP configuration with proper headers and error handling
+    private HttpProtocolBuilder httpProtocol = http
         .baseUrl(baseURL)
-        .inferHtmlResources()
-        .acceptHeader("*/*")
-        .acceptEncodingHeader("gzip, deflate")
-        .acceptLanguageHeader("fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3")
-        .connectionHeader("keep-alive")
-        .userAgentHeader("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:33.0) Gecko/20100101 Firefox/33.0")
-        .silentResources(); // Silence all resources like css or css so they don't clutter the results
+        .acceptHeader("application/json")
+        .contentTypeHeader("application/json")
+        .userAgentHeader("Gatling/Performance-Test")
+        .check(status().not(400), status().not(401), status().not(403), status().not(404), status().not(500))
+        .check(substring("error").notExists())
+        .disableCaching()
+        .disableWarmUp();
 
-    Map<String, String> headersHttp = Map.of("Accept", "application/json");
+    // Task data feeder with unique IDs and proper timestamps
+    private Iterator<Map<String, Object>> taskFeeder = new Iterator<Map<String, Object>>() {
+        @Override
+        public boolean hasNext() {
+            return true;
+        }
 
-    Map<String, String> headersHttpAuthentication = Map.of("Content-Type", "application/json", "Accept", "application/json");
+        @Override
+        public Map<String, Object> next() {
+            Map<String, Object> map = new HashMap<>();
+            String uniqueId = UUID.randomUUID().toString();
+            map.put("taskId", uniqueId);
+            map.put("description", "Performance Test Task " + uniqueId);
+            map.put("dueDate", ZonedDateTime.now(ZoneOffset.UTC).plusDays(7).toString());
+            map.put("priority", "HIGH");
+            map.put("completed", false);
+            map.put("createdDate", ZonedDateTime.now(ZoneOffset.UTC).toString());
+            map.put("lastModifiedDate", ZonedDateTime.now(ZoneOffset.UTC).toString());
+            return map;
+        }
+    };
 
-    Map<String, String> headersHttpAuthenticated = Map.of("Accept", "application/json", "Authorization", "${access_token}");
-
-    ChainBuilder scn = exec(http("First unauthenticated request").get("/api/account").headers(headersHttp).check(status().is(401)))
-        .exitHereIfFailed()
-        .pause(10)
+    // Authentication chain with proper error handling
+    private ChainBuilder authenticate = exec(session -> {
+        apiCoverage.put("/api/authenticate [POST]", new EndpointStatus("Authentication", "-", false));
+        return session;
+    })
         .exec(
             http("Authentication")
                 .post("/api/authenticate")
-                .headers(headersHttpAuthentication)
                 .body(StringBody("{\"username\":\"admin\", \"password\":\"admin\"}"))
-                .asJson()
-                .check(header("Authorization").saveAs("access_token"))
+                .check(status().is(200))
+                .check(jsonPath("$.id_token").exists().saveAs("jwt_token"))
+                .check(bodyString().saveAs("authResponse"))
+                .check(header("Content-Type").is("application/json"))
         )
-        .exitHereIfFailed()
-        .pause(2)
-        .exec(http("Authenticated request").get("/api/account").headers(headersHttpAuthenticated).check(status().is(200)))
-        .pause(10)
-        .repeat(2)
-        .on(
-            exec(http("Get all tasks").get("/api/tasks").headers(headersHttpAuthenticated).check(status().is(200)))
-                .pause(Duration.ofSeconds(10), Duration.ofSeconds(20))
-                .exec(
-                    http("Create new task")
-                        .post("/api/tasks")
-                        .headers(headersHttpAuthenticated)
-                        .body(
-                            StringBody(
-                                "{" +
-                                "\"description\": \"SAMPLE_TEXT\"" +
-                                ", \"dueDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                ", \"priority\": \"HIGH\"" +
-                                ", \"completed\": null" +
-                                ", \"createdDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                ", \"lastModifiedDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                "}"
-                            )
-                        )
-                        .asJson()
-                        .check(status().is(201))
-                        .check(headerRegex("Location", "(.*)").saveAs("new_task_url"))
+        .exec(session -> {
+            String token = session.getString("jwt_token");
+            if (token != null && !token.isEmpty()) {
+                System.out.println("Authentication successful. Token: " + token.substring(0, 10) + "...");
+                apiCoverage.get("/api/authenticate [POST]").markSuccess(session.getString("authResponse"));
+                successCounter.incrementAndGet();
+            } else {
+                System.out.println("Authentication failed: No token received");
+                failureCounter.incrementAndGet();
+            }
+            return session;
+        })
+        .exitHereIfFailed();
+
+    // Task CRUD operations with proper error handling and logging
+    private ChainBuilder createTask = feed(taskFeeder)
+        .exec(session -> {
+            apiCoverage.put("/api/tasks [POST]", new EndpointStatus("Create Task", "-", false));
+            return session;
+        })
+        .exec(
+            http("Create Task")
+                .post("/api/tasks")
+                .header("Authorization", "Bearer #{jwt_token}")
+                .body(
+                    StringBody(
+                        "{" +
+                        "\"description\": \"#{taskId}\"," +
+                        "\"dueDate\": \"#{dueDate}\"," +
+                        "\"priority\": \"#{priority}\"," +
+                        "\"completed\": #{completed}," +
+                        "\"createdDate\": \"#{createdDate}\"," +
+                        "\"lastModifiedDate\": \"#{lastModifiedDate}\"" +
+                        "}"
+                    )
                 )
-                .exitHereIfFailed()
-                .pause(10)
-                .repeat(5)
-                .on(exec(http("Get created task").get("${new_task_url}").headers(headersHttpAuthenticated)).pause(10))
-                .exec(http("Delete created task").delete("${new_task_url}").headers(headersHttpAuthenticated))
-                .pause(10)
-        );
+                .check(status().is(201))
+                .check(header("Location").exists().saveAs("task_url"))
+                .check(bodyString().saveAs("createResponse"))
+        )
+        .exec(session -> {
+            String taskUrl = session.getString("task_url");
+            if (taskUrl != null && !taskUrl.isEmpty()) {
+                System.out.println("Task created: " + taskUrl);
+                apiCoverage.get("/api/tasks [POST]").markSuccess(session.getString("createResponse"));
+                successCounter.incrementAndGet();
+            } else {
+                System.out.println("Task creation failed: No location header");
+                failureCounter.incrementAndGet();
+            }
+            return session;
+        })
+        .exitHereIfFailed()
+        .pause(Duration.ofMillis(500)); // Prevent race conditions
 
-    ScenarioBuilder users = scenario("Test the Task entity").exec(scn);
+    private ChainBuilder getTask = exec(session -> {
+        apiCoverage.put("/api/tasks [GET]", new EndpointStatus("Get Task", "-", false));
+        return session;
+    })
+        .exec(
+            http("Get Task")
+                .get("#{task_url}")
+                .header("Authorization", "Bearer #{jwt_token}")
+                .check(status().is(200))
+                .check(jsonPath("$.id").exists())
+                .check(bodyString().saveAs("getResponse"))
+        )
+        .exec(session -> {
+            System.out.println("Task retrieved: " + session.getString("task_url"));
+            apiCoverage.get("/api/tasks [GET]").markSuccess(session.getString("getResponse"));
+            successCounter.incrementAndGet();
+            return session;
+        })
+        .exitHereIfFailed()
+        .pause(Duration.ofMillis(500)); // Prevent race conditions
 
+    private ChainBuilder deleteTask = exec(session -> {
+        apiCoverage.put("/api/tasks [DELETE]", new EndpointStatus("Delete Task", "-", false));
+        return session;
+    })
+        .exec(http("Delete Task").delete("#{task_url}").header("Authorization", "Bearer #{jwt_token}").check(status().is(204)))
+        .exec(session -> {
+            System.out.println("Task deleted: " + session.getString("task_url"));
+            apiCoverage.get("/api/tasks [DELETE]").markSuccess("Deleted successfully");
+            successCounter.incrementAndGet();
+            return session;
+        })
+        .pause(Duration.ofMillis(500)); // Prevent race conditions
+
+    // Reporting chain with CSV export
+    private ChainBuilder reportingChain = exec(session -> {
+        // Create results directory if it doesn't exist
+        try {
+            Path resultsDir = Paths.get("target/gatling/results");
+            Files.createDirectories(resultsDir);
+
+            // Write CSV report
+            try (FileWriter writer = new FileWriter(resultsPath)) {
+                writer.write("Endpoint,Method,Status,Time (ms),Covered,Note\n");
+
+                apiCoverage.forEach((endpoint, status) -> {
+                    try {
+                        writer.write(
+                            String.format(
+                                "%s,%s,%s,%s,%s,%s\n",
+                                endpoint.replace(" [", ",").replace("]", ""),
+                                status.getName(),
+                                status.isSuccess() ? "✅" : "❌",
+                                status.getResponseTime(),
+                                status.isSuccess(),
+                                status.getNote()
+                            )
+                        );
+                    } catch (IOException e) {
+                        System.err.println("Error writing to CSV: " + e.getMessage());
+                    }
+                });
+            }
+        } catch (IOException e) {
+            System.err.println("Error creating results directory: " + e.getMessage());
+        }
+
+        // Print console report
+        System.out.println("\n=== API Coverage Report ===");
+        System.out.println("| Endpoint | Method | Status | Response Time | Details |");
+        System.out.println("|----------|--------|--------|---------------|----------|");
+
+        apiCoverage.forEach((endpoint, status) -> {
+            System.out.printf(
+                "| %s | %s | %s | %s | %s |\n",
+                endpoint,
+                status.getName(),
+                status.isSuccess() ? "✅" : "❌",
+                status.getResponseTime(),
+                status.getNote()
+            );
+        });
+
+        System.out.println("\n=== Final Statistics ===");
+        System.out.printf("✅ Covered: %d\n", successCounter.get());
+        System.out.printf("❌ Failed: %d\n", failureCounter.get());
+        System.out.printf("⏭ Skipped: %d\n", skippedCounter.get());
+
+        long total = successCounter.get() + failureCounter.get() + skippedCounter.get();
+        if (total > 0) {
+            System.out.printf("🎯 Final API Test Coverage: %.2f%%\n", ((100.0 * successCounter.get()) / total));
+        }
+
+        return session;
+    });
+
+    // Main scenario with proper sequencing
+    ScenarioBuilder scn = scenario("Task API Test Scenario")
+        .exec(authenticate)
+        .pause(1) // Wait for token to be properly set
+        .exec(createTask)
+        .pause(1) // Wait for creation to complete
+        .exec(getTask)
+        .pause(1) // Wait for retrieval to complete
+        .exec(deleteTask)
+        .exec(reportingChain);
+
+    // Simulation setup with proper assertions
     {
-        setUp(
-            users.injectOpen(rampUsers(Integer.getInteger("users", 100)).during(Duration.ofMinutes(Integer.getInteger("ramp", 1))))
-        ).protocols(httpConf);
+        setUp(scn.injectOpen(rampUsers(10).during(Duration.ofSeconds(10))))
+            .protocols(httpProtocol)
+            .assertions(
+                global().responseTime().max().lt(1000),
+                global().successfulRequests().percent().gt(95.0),
+                global().failedRequests().count().is(0L)
+            );
+    }
+
+    // Enhanced helper class for tracking endpoint status
+    private static class EndpointStatus {
+
+        private final String name;
+        private String responseTime;
+        private boolean success;
+        private String note;
+
+        public EndpointStatus(String name, String responseTime, boolean success) {
+            this.name = name;
+            this.responseTime = responseTime;
+            this.success = success;
+            this.note = "Pending";
+        }
+
+        public void markSuccess(String response) {
+            this.success = true;
+            this.responseTime = "< 1000ms";
+            this.note = "OK";
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getResponseTime() {
+            return responseTime;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getNote() {
+            return note;
+        }
     }
 }

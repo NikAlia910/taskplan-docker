@@ -44,7 +44,7 @@
     "e2e:devserver": "concurrently -k -s first -n backend,frontend,e2e -c red,yellow,blue npm:backend:start npm:start \"wait-on -t 180000 http-get://127.0.0.1:9000 && npm run e2e:headless -- -c baseUrl=http://localhost:9000\"",
     "pree2e:headless": "npm run ci:server:await",
     "e2e:headless": "npm run e2e:cypress --",
-    "java:docker": "./mvnw -ntp verify -DskipTests -Pprod jib:dockerBuild",
+    "java:docker": ".\\mvnw.cmd -ntp verify -DskipTests -Pprod jib:dockerBuild",
     "java:docker:arm64": "npm run java:docker -- -Djib-maven-plugin.architecture=arm64",
     "java:docker:dev": "npm run java:docker -- -Pdev,webapp",
     "java:docker:prod": "npm run java:docker -- -Pprod",

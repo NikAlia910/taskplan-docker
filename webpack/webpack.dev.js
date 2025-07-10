@@ -1,41 +1,27 @@
+const webpack = require('webpack');
 const webpackMerge = require('webpack-merge').merge;
 const BrowserSyncPlugin = require('browser-sync-webpack-plugin');
 const SimpleProgressWebpackPlugin = require('simple-progress-webpack-plugin');
-const WebpackNotifierPlugin = require('webpack-notifier');
 const path = require('path');
 const sass = require('sass');
 
-const utils = require('./utils.js');
-const commonConfig = require('./webpack.common.js');
+const commonConfig = require('./webpack.common');
+const environment = require('./environment');
 
-const ENV = 'development';
+module.exports = async (config, options = {}) => {
+  process.env.NODE_ENV = 'development';
 
-module.exports = async options =>
-  webpackMerge(await commonConfig({ env: ENV }), {
-    devtool: 'cheap-module-source-map', // https://reactjs.org/docs/cross-origin-errors.html
-    mode: ENV,
+  return webpackMerge(await commonConfig({ env: 'development' }), {
     entry: ['./src/main/webapp/app/index'],
-    output: {
-      path: utils.root('target/classes/static/'),
-      filename: '[name].[contenthash:8].js',
-      chunkFilename: '[name].[chunkhash:8].chunk.js',
-    },
-    optimization: {
-      moduleIds: 'named',
-    },
+    devtool: 'cheap-module-source-map',
     module: {
       rules: [
         {
           test: /\.(sa|sc|c)ss$/,
           use: [
             'style-loader',
-            {
-              loader: 'css-loader',
-              options: { url: false },
-            },
-            {
-              loader: 'postcss-loader',
-            },
+            'css-loader',
+            'postcss-loader',
             {
               loader: 'sass-loader',
               options: { implementation: sass },
@@ -43,6 +29,10 @@ module.exports = async options =>
           ],
         },
       ],
+    },
+    output: {
+      path: path.resolve(__dirname, '../target/classes/static/'),
+      publicPath: '/',
     },
     devServer: {
       hot: true,
@@ -52,36 +42,28 @@ module.exports = async options =>
       port: 9060,
       proxy: [
         {
-          context: ['/api', '/services', '/management', '/v3/api-docs', '/h2-console'],
-          target: `http${options.tls ? 's' : ''}://localhost:8080`,
+          context: ['/api', '/services', '/management', '/v3/api-docs', '/h2-console', '/auth', '/health'],
+          target: `http${environment.tls ? 's' : ''}://localhost:8080`,
           secure: false,
-          changeOrigin: options.tls,
-        },
-        {
-          context: ['/websocket'],
-          target: 'ws://127.0.0.1:8080',
-          ws: true,
+          changeOrigin: environment.tls,
         },
       ],
+      https: environment.tls,
       historyApiFallback: true,
     },
     stats: process.env.JHI_DISABLE_WEBPACK_LOGS ? 'none' : options.stats,
     plugins: [
-      process.env.JHI_DISABLE_WEBPACK_LOGS
-        ? null
-        : new SimpleProgressWebpackPlugin({
-            format: options.stats === 'minimal' ? 'compact' : 'expanded',
-          }),
+      new SimpleProgressWebpackPlugin({
+        format: 'compact',
+      }),
       new BrowserSyncPlugin(
         {
-          https: options.tls,
           host: 'localhost',
           port: 9000,
           proxy: {
-            target: `http${options.tls ? 's' : ''}://localhost:${options.watch ? '8080' : '9060'}`,
-            ws: true,
+            target: `http://localhost:${options.port || 9060}`,
             proxyOptions: {
-              changeOrigin: false, //pass the Host header to the backend unchanged https://github.com/Browsersync/browser-sync/issues/430
+              changeOrigin: true,
             },
           },
           socket: {
@@ -89,21 +71,12 @@ module.exports = async options =>
               heartbeatTimeout: 60000,
             },
           },
-          /*
-      ,ghostMode: { // uncomment this part to disable BrowserSync ghostMode; https://github.com/jhipster/generator-jhipster/issues/11116
-        clicks: false,
-        location: false,
-        forms: false,
-        scroll: false
-      } */
+          ghostMode: false,
         },
         {
           reload: false,
         },
       ),
-      new WebpackNotifierPlugin({
-        title: 'Taskplan Docker',
-        contentImage: path.join(__dirname, 'logo-jhipster.png'),
-      }),
     ].filter(Boolean),
   });
+};
