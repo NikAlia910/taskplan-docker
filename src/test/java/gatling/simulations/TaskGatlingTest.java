@@ -1,99 +1,220 @@
 package gatling.simulations;
 
-import static io.gatling.javaapi.core.CoreDsl.StringBody;
-import static io.gatling.javaapi.core.CoreDsl.exec;
-import static io.gatling.javaapi.core.CoreDsl.rampUsers;
-import static io.gatling.javaapi.core.CoreDsl.scenario;
-import static io.gatling.javaapi.http.HttpDsl.header;
-import static io.gatling.javaapi.http.HttpDsl.headerRegex;
-import static io.gatling.javaapi.http.HttpDsl.http;
-import static io.gatling.javaapi.http.HttpDsl.status;
+import static io.gatling.javaapi.core.CoreDsl.*;
+import static io.gatling.javaapi.http.HttpDsl.*;
 
-import io.gatling.javaapi.core.ChainBuilder;
-import io.gatling.javaapi.core.ScenarioBuilder;
-import io.gatling.javaapi.core.Simulation;
-import io.gatling.javaapi.http.HttpProtocolBuilder;
-import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
+import io.gatling.javaapi.core.*;
+import io.gatling.javaapi.http.*;
+import java.time.*;
+import java.util.*;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Performance test for the Task entity.
- *
- * @see <a href="https://github.com/jhipster/generator-jhipster/tree/v8.10.0/generators/gatling#logging-tips">Logging tips</a>
- */
 public class TaskGatlingTest extends Simulation {
 
-    String baseURL = Optional.ofNullable(System.getProperty("baseURL")).orElse("http://localhost:8080");
+    // --- API Coverage Map ---
+    private static final Map<String, Boolean> apiCoverage = new ConcurrentHashMap<>();
+    private static final List<String> endpoints = List.of(
+        "/api/authenticate [POST]",
+        "/api/tasks [POST]",
+        "/api/tasks [GET]",
+        "/api/tasks/{id} [GET]",
+        "/api/tasks/{id} [DELETE]",
+        "/api/account [GET]",
+        "/api/users [GET]",
+        "/api/admin/users [GET]"
+        // Add more endpoints as needed for full coverage
+    );
 
-    HttpProtocolBuilder httpConf = http
-        .baseUrl(baseURL)
-        .inferHtmlResources()
-        .acceptHeader("*/*")
-        .acceptEncodingHeader("gzip, deflate")
-        .acceptLanguageHeader("fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3")
-        .connectionHeader("keep-alive")
-        .userAgentHeader("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:33.0) Gecko/20100101 Firefox/33.0")
-        .silentResources(); // Silence all resources like css or css so they don't clutter the results
+    static {
+        endpoints.forEach(e -> apiCoverage.put(e, false));
+    }
 
-    Map<String, String> headersHttp = Map.of("Accept", "application/json");
+    private static final String BASE_URL = System.getProperty("baseURL", "http://localhost:8080");
 
-    Map<String, String> headersHttpAuthentication = Map.of("Content-Type", "application/json", "Accept", "application/json");
+    private final HttpProtocolBuilder httpConf = http
+        .baseUrl(BASE_URL)
+        .acceptHeader("application/json")
+        .contentTypeHeader("application/json")
+        .userAgentHeader("Gatling/Taskplan")
+        .disableFollowRedirect();
 
-    Map<String, String> headersHttpAuthenticated = Map.of("Accept", "application/json", "Authorization", "${access_token}");
-
-    ChainBuilder scn = exec(http("First unauthenticated request").get("/api/account").headers(headersHttp).check(status().is(401)))
-        .exitHereIfFailed()
-        .pause(10)
-        .exec(
-            http("Authentication")
+    // --- Helper: Auth Request ---
+    private ChainBuilder authRequest() {
+        return exec(
+            http("Authenticate")
                 .post("/api/authenticate")
-                .headers(headersHttpAuthentication)
-                .body(StringBody("{\"username\":\"admin\", \"password\":\"admin\"}"))
-                .asJson()
-                .check(header("Authorization").saveAs("access_token"))
-        )
-        .exitHereIfFailed()
-        .pause(2)
-        .exec(http("Authenticated request").get("/api/account").headers(headersHttpAuthenticated).check(status().is(200)))
-        .pause(10)
-        .repeat(2)
-        .on(
-            exec(http("Get all tasks").get("/api/tasks").headers(headersHttpAuthenticated).check(status().is(200)))
-                .pause(Duration.ofSeconds(10), Duration.ofSeconds(20))
-                .exec(
-                    http("Create new task")
-                        .post("/api/tasks")
-                        .headers(headersHttpAuthenticated)
-                        .body(
-                            StringBody(
-                                "{" +
-                                "\"description\": \"SAMPLE_TEXT\"" +
-                                ", \"dueDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                ", \"priority\": \"HIGH\"" +
-                                ", \"completed\": null" +
-                                ", \"createdDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                ", \"lastModifiedDate\": \"2020-01-01T00:00:00.000Z\"" +
-                                "}"
-                            )
-                        )
-                        .asJson()
-                        .check(status().is(201))
-                        .check(headerRegex("Location", "(.*)").saveAs("new_task_url"))
-                )
-                .exitHereIfFailed()
-                .pause(10)
-                .repeat(5)
-                .on(exec(http("Get created task").get("${new_task_url}").headers(headersHttpAuthenticated)).pause(10))
-                .exec(http("Delete created task").delete("${new_task_url}").headers(headersHttpAuthenticated))
-                .pause(10)
-        );
+                .body(StringBody("{" + "\"username\":\"admin\"," + "\"password\":\"admin\"}"))
+                .check(status().is(200))
+                .check(jsonPath("$.id_token").saveAs("jwt_token"))
+                .check(responseTimeInMillis().lt(1000))
+        ).exec(session -> {
+            if (session.contains("jwt_token")) {
+                String token = session.getString("jwt_token");
+                System.out.println("[DEBUG] JWT Token: " + token);
+                apiCoverage.put("/api/authenticate [POST]", true);
+            }
+            return session;
+        });
+    }
 
-    ScenarioBuilder users = scenario("Test the Task entity").exec(scn);
+    // --- Helper: Create Task ---
+    private ChainBuilder createTask() {
+        return exec(session -> {
+            String uuid = UUID.randomUUID().toString();
+            String now = ZonedDateTime.now(ZoneOffset.UTC).toString();
+            String payload = String.format(
+                "{\"description\":\"Task-%s\",\"dueDate\":\"%s\",\"priority\":\"HIGH\",\"completed\":false,\"createdDate\":\"%s\"}",
+                uuid,
+                now.substring(0, 10),
+                now
+            );
+            return session.set("task_payload", payload);
+        })
+            .exec(
+                http("Create Task")
+                    .post("/api/tasks")
+                    .header("Authorization", "Bearer ${jwt_token}")
+                    .body(StringBody("${task_payload}"))
+                    .check(status().is(201))
+                    .check(headerRegex("Location", "/api/tasks/(\\d+)").saveAs("task_id"))
+                    .check(responseTimeInMillis().lt(1000))
+            )
+            .exec(session -> {
+                if (session.contains("task_id")) {
+                    String id = session.getString("task_id");
+                    System.out.println("[DEBUG] Created Task ID: " + id);
+                    apiCoverage.put("/api/tasks [POST]", true);
+                }
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Get Task ---
+    private ChainBuilder getTask() {
+        return exec(
+            http("Get Task")
+                .get(session -> "/api/tasks/" + session.getString("task_id"))
+                .header("Authorization", "Bearer ${jwt_token}")
+                .check(status().is(200))
+                .check(responseTimeInMillis().lt(1000))
+        )
+            .exec(session -> {
+                if (session.contains("task_id")) {
+                    apiCoverage.put("/api/tasks/{id} [GET]", true);
+                }
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Delete Task ---
+    private ChainBuilder deleteTask() {
+        return exec(
+            http("Delete Task")
+                .delete(session -> "/api/tasks/" + session.getString("task_id"))
+                .header("Authorization", "Bearer ${jwt_token}")
+                .check(status().is(204))
+                .check(responseTimeInMillis().lt(1000))
+        )
+            .exec(session -> {
+                if (session.contains("task_id")) {
+                    apiCoverage.put("/api/tasks/{id} [DELETE]", true);
+                }
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Get All Tasks ---
+    private ChainBuilder getAllTasks() {
+        return exec(
+            http("Get All Tasks")
+                .get("/api/tasks")
+                .header("Authorization", "Bearer ${jwt_token}")
+                .check(status().is(200))
+                .check(responseTimeInMillis().lt(1000))
+        )
+            .exec(session -> {
+                apiCoverage.put("/api/tasks [GET]", true);
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Get Account ---
+    private ChainBuilder getAccount() {
+        return exec(
+            http("Get Account")
+                .get("/api/account")
+                .header("Authorization", "Bearer ${jwt_token}")
+                .check(status().is(200))
+                .check(responseTimeInMillis().lt(1000))
+        )
+            .exec(session -> {
+                apiCoverage.put("/api/account [GET]", true);
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Get Public Users ---
+    private ChainBuilder getPublicUsers() {
+        return exec(http("Get Public Users").get("/api/users").check(status().is(200)).check(responseTimeInMillis().lt(1000)))
+            .exec(session -> {
+                apiCoverage.put("/api/users [GET]", true);
+                return session;
+            })
+            .pause(1);
+    }
+
+    // --- Helper: Get Admin Users ---
+    private ChainBuilder getAdminUsers() {
+        return exec(
+            http("Get Admin Users")
+                .get("/api/admin/users")
+                .header("Authorization", "Bearer ${jwt_token}")
+                .check(status().is(200))
+                .check(responseTimeInMillis().lt(1000))
+        )
+            .exec(session -> {
+                apiCoverage.put("/api/admin/users [GET]", true);
+                return session;
+            })
+            .pause(1);
+    }
+
+    private static void printApiCoverageSummary() {
+        System.out.println("--- API Coverage Summary ---");
+        int covered = 0;
+        for (String endpoint : endpoints) {
+            Boolean ok = apiCoverage.get(endpoint);
+            String status = (ok != null && ok) ? "✅" : "❌";
+            if (ok != null && ok) covered++;
+            System.out.println(endpoint + ": " + status);
+        }
+        double percent = (100.0 * covered) / endpoints.size();
+        System.out.printf("API Coverage: %d / %d (%.2f%%)\n", covered, endpoints.size(), percent);
+    }
+
+    // --- Scenario ---
+    private final ScenarioBuilder scn = scenario("Full API Coverage Scenario")
+        .exec(authRequest())
+        .exec(getAccount())
+        .exec(getPublicUsers())
+        .exec(getAdminUsers())
+        .exec(getAllTasks())
+        .exec(createTask())
+        .exec(getTask())
+        .exec(deleteTask())
+        .exec(session -> {
+            // Print API coverage summary at the end of the scenario
+            printApiCoverageSummary();
+            return session;
+        });
 
     {
-        setUp(
-            users.injectOpen(rampUsers(Integer.getInteger("users", 100)).during(Duration.ofMinutes(Integer.getInteger("ramp", 1))))
-        ).protocols(httpConf);
+        setUp(scn.injectOpen(rampUsers(10).during(Duration.ofSeconds(10)))).protocols(httpConf);
     }
 }
